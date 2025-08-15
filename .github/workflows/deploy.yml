@@ -1,0 +1,61 @@
+# .github/workflows/deploy.yml
+
+name: Build and Deploy to Cloud Run
+
+# This workflow runs on any push to the 'main' branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest # Use a standard Linux runner
+
+    # Granting permissions for the runner to interact with Google Cloud
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      # 1. Checkout your code from the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Authenticate to Google Cloud
+      # This action securely logs in without needing a static key file.
+      # You will need to set up "Workload Identity Federation" in GCP for this.
+      - name: Google Auth
+        id: auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          workload_identity_provider: 'projects/[PROJECT_NUMBER]/locations/global/workloadIdentityPools/[POOL_NAME]/providers/[PROVIDER_NAME]'
+          service_account: 'your-service-account-email@your-project-id.iam.gserviceaccount.com'
+
+      # 3. Setup Google Cloud SDK
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      # 4. Install DVC and Pull Artifacts
+      # The runner needs the trained model to include it in the Docker image.
+      - name: Install and Pull DVC Artifacts
+        run: |
+          pip install "dvc[gs]"
+          dvc pull
+
+      # 5. Build and Push Docker Image with Cloud Build
+      # This uses Cloud Build to create the image and push it to Artifact Registry.
+      - name: Build and Push Image
+        run: |-
+          gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest .
+
+      # 6. Deploy to Cloud Run
+      # This deploys the new image as your web service.
+      - name: Deploy to Cloud Run
+        run: |-
+          gcloud run deploy sentiment-api-service \
+            --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest \
+            --platform managed \
+            --region us-central1 \
+            --allow-unauthenticated
