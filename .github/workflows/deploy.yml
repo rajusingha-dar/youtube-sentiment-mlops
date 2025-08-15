@@ -2,7 +2,6 @@
 
 name: Build and Deploy to Cloud Run
 
-# This workflow runs on any push to the 'main' branch
 on:
   push:
     branches:
@@ -11,9 +10,9 @@ on:
 jobs:
   deploy:
     name: Deploy to Cloud Run
-    runs-on: ubuntu-latest # Use a standard Linux runner
+    runs-on: ubuntu-latest
 
-    # Granting permissions for the runner to interact with Google Cloud
+    # Grant permissions for the runner to authenticate with Google Cloud
     permissions:
       contents: 'read'
       id-token: 'write'
@@ -23,35 +22,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Authenticate to Google Cloud
-      # This action securely logs in without needing a static key file.
-      # You will need to set up "Workload Identity Federation" in GCP for this.
+      # 2. Authenticate to Google Cloud using Workload Identity Federation
+      # This step now uses secrets for all sensitive information.
       - name: Google Auth
         id: auth
         uses: 'google-github-actions/auth@v2'
         with:
-          workload_identity_provider: 'projects/[PROJECT_NUMBER]/locations/global/workloadIdentityPools/[POOL_NAME]/providers/[PROVIDER_NAME]'
-          service_account: 'your-service-account-email@your-project-id.iam.gserviceaccount.com'
+          workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.WIF_POOL_NAME }}/providers/${{ secrets.WIF_PROVIDER_NAME }}'
+          service_account: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
 
       # 3. Setup Google Cloud SDK
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      # 4. Install DVC and Pull Artifacts
-      # The runner needs the trained model to include it in the Docker image.
+      # 4. Install DVC and Pull Artifacts (model, vectorizer, etc.)
       - name: Install and Pull DVC Artifacts
         run: |
           pip install "dvc[gs]"
           dvc pull
 
-      # 5. Build and Push Docker Image with Cloud Build
-      # This uses Cloud Build to create the image and push it to Artifact Registry.
+      # 5. Build and Push Docker Image using Cloud Build
       - name: Build and Push Image
         run: |-
           gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest .
 
-      # 6. Deploy to Cloud Run
-      # This deploys the new image as your web service.
+      # 6. Deploy the new image to Cloud Run
       - name: Deploy to Cloud Run
         run: |-
           gcloud run deploy sentiment-api-service \
