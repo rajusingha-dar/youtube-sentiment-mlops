@@ -1,4 +1,4 @@
-# .github/workflows/deploy.yml 
+# .github/workflows/deploy.yml
 
 name: Build and Deploy to Cloud Run
 
@@ -20,8 +20,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # [MODIFIED] This step now authenticates using the service account key
-      # stored in a GitHub secret
       - name: Google Auth
         id: auth
         uses: 'google-github-actions/auth@v2'
@@ -38,9 +36,10 @@ jobs:
           pip install "dvc[gs]"
           dvc pull
 
-      - name: Build and Push Docker Image with Cloud Build
+      # [MODIFIED] Added the --async flag to bypass log streaming
+      - name: Build and Push Image
         run: |-
-          gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest .
+          gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest --async .
 
       - name: Deploy to Cloud Run
         run: |-
