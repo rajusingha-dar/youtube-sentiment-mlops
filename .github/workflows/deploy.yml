@@ -43,7 +43,7 @@ jobs:
           pip install "dvc[gs]"
           dvc pull
 
-      # Fixed submit build with dynamic project ID detection.
+      # Fixed submit build with dynamic project ID detection
       - name: Submit Build
         id: submit
         run: |-
