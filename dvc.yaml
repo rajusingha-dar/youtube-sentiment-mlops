@@ -1,0 +1,31 @@
+stages:
+  ingest_data:
+    cmd: python src/components/data_ingestion.py --output_path artifacts/ingested_data
+    deps:
+      - src/components/data_ingestion.py
+      - data/reddit_preprocessing.csv
+    outs:
+      - artifacts/ingested_data
+
+  transform_data:
+    cmd: python src/components/data_transformation.py --input_path artifacts/ingested_data --output_path artifacts/transformed_data
+    deps:
+      - src/components/data_transformation.py
+      - artifacts/ingested_data
+    params:
+      - base.random_state
+      - vectorizer
+    outs:
+      - artifacts/transformed_data
+
+  train_model:
+    cmd: python src/components/model_trainer.py --input_path artifacts/transformed_data --output_path artifacts/trained_model
+    deps:
+      - src/components/model_trainer.py
+      - artifacts/transformed_data
+    params:
+      - base
+      - resampling
+      - model
+    outs:
+      - artifacts/trained_model

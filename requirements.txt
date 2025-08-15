@@ -1,0 +1,10 @@
+pandas
+pyyaml
+mlflow
+scikit-learn
+imbalanced-learn
+lightgbm
+gunicorn
+flask
+dvc[gcs]
+dvc[gs]
