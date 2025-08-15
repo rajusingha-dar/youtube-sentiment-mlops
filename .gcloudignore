@@ -1,0 +1,17 @@
+# Ignore the .gcloudignore file itself
+.gcloudignore
+
+# Ignore Git and DVC metadata
+.git
+.dvc
+
+# Ignore the virtual environment
+venv/
+
+# Ignore DVC-managed artifacts and data
+artifacts/
+data/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
