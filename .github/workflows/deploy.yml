@@ -36,10 +36,20 @@ jobs:
           pip install "dvc[gs]"
           dvc pull
 
-      # [MODIFIED] Removed the --async flag
-      - name: Build and Push Image
+      # [MODIFIED] Split the build step into two parts to bypass log streaming errors
+      - name: Submit Build
+        id: submit
         run: |-
-          gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest .
+          gcloud builds submit \
+            --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest \
+            --no-source \
+            --suppress-logs \
+            --id-file=.build_id .
+
+      - name: Wait for Build
+        run: |-
+          BUILD_ID=$(cat .build_id)
+          gcloud builds log --stream "$BUILD_ID"
 
       - name: Deploy to Cloud Run
         run: |-
