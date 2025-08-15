@@ -12,43 +12,36 @@ jobs:
     name: Deploy to Cloud Run
     runs-on: ubuntu-latest
 
-    # Grant permissions for the runner to authenticate with Google Cloud
     permissions:
       contents: 'read'
       id-token: 'write'
 
     steps:
-      # 1. Checkout your code from the repository
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2. Authenticate to Google Cloud using Workload Identity Federation
-      # This step now uses secrets for all sensitive information.
+      # [MODIFIED] This step now authenticates using the service account key
+      # stored in a GitHub secret.
       - name: Google Auth
         id: auth
         uses: 'google-github-actions/auth@v2'
         with:
-          workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.WIF_POOL_NAME }}/providers/${{ secrets.WIF_PROVIDER_NAME }}'
-          service_account: '${{ secrets.GCP_SERVICE_ACCOUNT }}'
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      # 3. Setup Google Cloud SDK
       - name: Set up Cloud SDK
         uses: 'google-github-actions/setup-gcloud@v2'
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      # 4. Install DVC and Pull Artifacts (model, vectorizer, etc.)
       - name: Install and Pull DVC Artifacts
         run: |
           pip install "dvc[gs]"
           dvc pull
 
-      # 5. Build and Push Docker Image using Cloud Build
-      - name: Build and Push Image
+      - name: Build and Push Docker Image with Cloud Build
         run: |-
           gcloud builds submit --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest .
 
-      # 6. Deploy the new image to Cloud Run
       - name: Deploy to Cloud Run
         run: |-
           gcloud run deploy sentiment-api-service \
