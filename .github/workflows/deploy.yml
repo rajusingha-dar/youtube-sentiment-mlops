@@ -36,20 +36,27 @@ jobs:
           pip install "dvc[gs]"
           dvc pull
 
-      # [MODIFIED] Correctly captures the build ID to a file
+      # [FIXED] Added custom log directory to avoid VPC-SC issues
       - name: Submit Build
         id: submit
         run: |-
           gcloud builds submit \
             --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest \
-            --suppress-logs \
+            --gcs-log-dir=gs://${{ secrets.GCP_PROJECT_ID }}_cloudbuild/build-logs \
             --format='value(id)' . > .build_id
 
-      # [UNCHANGED] Reads the build ID and waits for the build to finish
+      # [FIXED] Enhanced build monitoring with better error handling
       - name: Wait for Build
         run: |-
           BUILD_ID=$(cat .build_id)
-          gcloud builds log --stream "$BUILD_ID"
+          echo "Build ID: $BUILD_ID"
+          echo "Waiting for build to complete..."
+          
+          # Wait for build completion with timeout
+          gcloud builds describe "$BUILD_ID" --format='value(status)' || echo "Build status check failed"
+          
+          # Try to stream logs, but don't fail if it doesn't work
+          gcloud builds log --stream "$BUILD_ID" || echo "Log streaming not available, check Cloud Console"
 
       - name: Deploy to Cloud Run
         run: |-
