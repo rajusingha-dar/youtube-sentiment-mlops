@@ -31,21 +31,30 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
+      # Debug step to verify project configuration
+      - name: Debug Project Info
+        run: |
+          echo "Secret GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}"
+          echo "Actual Project ID: $(gcloud config get-value project)"
+          echo "Current user: $(gcloud config get-value account)"
+
       - name: Install and Pull DVC Artifacts
         run: |
           pip install "dvc[gs]"
           dvc pull
 
-      # [FIXED] Added custom log directory to avoid VPC-SC issues
+      # Fixed submit build with dynamic project ID detection
       - name: Submit Build
         id: submit
         run: |-
+          PROJECT_ID=$(gcloud config get-value project)
+          echo "Using Project ID for build: $PROJECT_ID"
           gcloud builds submit \
-            --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest \
-            --gcs-log-dir=gs://${{ secrets.GCP_PROJECT_ID }}_cloudbuild/build-logs \
+            --tag us-central1-docker.pkg.dev/$PROJECT_ID/sentiment-repo/sentiment-app:latest \
+            --gcs-log-dir=gs://$PROJECT_ID\_cloudbuild/build-logs \
             --format='value(id)' . > .build_id
 
-      # [FIXED] Enhanced build monitoring with better error handling
+      # Enhanced build monitoring with better error handling
       - name: Wait for Build
         run: |-
           BUILD_ID=$(cat .build_id)
@@ -58,10 +67,16 @@ jobs:
           # Try to stream logs, but don't fail if it doesn't work
           gcloud builds log --stream "$BUILD_ID" || echo "Log streaming not available, check Cloud Console"
 
+      # Fixed deploy with dynamic project ID
       - name: Deploy to Cloud Run
         run: |-
+          PROJECT_ID=$(gcloud config get-value project)
+          echo "Deploying with Project ID: $PROJECT_ID"
           gcloud run deploy sentiment-api-service \
-            --image us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest \
+            --image us-central1-docker.pkg.dev/$PROJECT_ID/sentiment-repo/sentiment-app:latest \
             --platform managed \
             --region us-central1 \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --port 8080 \
+            --memory 1Gi \
+            --cpu 1
