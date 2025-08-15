@@ -36,16 +36,16 @@ jobs:
           pip install "dvc[gs]"
           dvc pull
 
-      # [MODIFIED] Split the build step into two parts to bypass log streaming errors
+      # [MODIFIED] Correctly captures the build ID to a file
       - name: Submit Build
         id: submit
         run: |-
           gcloud builds submit \
             --tag us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/sentiment-repo/sentiment-app:latest \
-            --no-source \
             --suppress-logs \
-            --id-file=.build_id .
+            --format='value(id)' . > .build_id
 
+      # [UNCHANGED] Reads the build ID and waits for the build to finish
       - name: Wait for Build
         run: |-
           BUILD_ID=$(cat .build_id)
