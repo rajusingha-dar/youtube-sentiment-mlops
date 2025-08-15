@@ -43,6 +43,18 @@ jobs:
           pip install "dvc[gs]"
           dvc pull
 
+      # Ensure Artifact Registry repository exists
+      - name: Setup Artifact Registry
+        run: |
+          # Enable Artifact Registry API
+          gcloud services enable artifactregistry.googleapis.com
+          
+          # Create repository if it doesn't exist (ignore error if it already exists)
+          gcloud artifacts repositories create sentiment-repo \
+            --repository-format=docker \
+            --location=us-central1 \
+            --description="Docker repository for sentiment analysis app" || echo "Repository may already exist"
+
       # Fixed submit build with dynamic project ID detection
       - name: Submit Build
         id: submit
